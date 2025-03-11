@@ -1,0 +1,12 @@
+package routines
+
+import (
+	"github.com/LeonardoGrigolettoDev/pick-point.git/database"
+	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
+)
+
+func VerifyDBTables() {
+	database.DB.AutoMigrate(&models.User{})
+	database.DB.AutoMigrate(&models.Period{})
+	database.DB.AutoMigrate(&models.Permission{})
+}
