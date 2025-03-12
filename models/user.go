@@ -1,17 +1,21 @@
 package models
 
 import (
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type User struct {
 	gorm.Model
-	ID       uint   `json:"id" gorm:"primaryKey"`
-	Name     string `json:"name"`
-	Email    string `json:"email" gorm:"unique"`
-	Password string `json:"-"`
-	Type     string `json:"type"`
+	ID          uint             `json:"id" gorm:"primaryKey"`
+	Name        string           `json:"name"`
+	Email       string           `json:"email" gorm:"unique"`
+	Password    string           `json:"-"`
+	Type        string           `json:"type"`
+	Entity      Entity           `json:"entity" gorm:"foreignKey:EntityID"`
+	EntityID    uuid.UUID        `json:"entity_id" gorm:"not null"`
+	Permissions []UserPermission `json:"permissions" gorm:"many2many:permission;"`
 }
 
 func (u *User) HashPassword() error {
