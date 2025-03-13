@@ -6,10 +6,16 @@ import (
 )
 
 func SetupRoutes(router *gin.Engine) {
-	auth := router.Group("/")
+	// auth := router.Group("/")
 	api := router.Group("/api")
 	{
 		SetupUserRoutes(api)
-		auth.Use(middlewares.AuthMiddleware())
+		SetupEntityRoutes(api)
+		SetupPeriodRoutes(api)
+		SetupUserPermissionRoutes(api)
+		SetupEventRoutes(api)
+		SetupHistoryRoutes(api)
+		SetupAdjustmentRoutes(api)
+		api.Use(middlewares.AuthMiddleware())
 	}
 }

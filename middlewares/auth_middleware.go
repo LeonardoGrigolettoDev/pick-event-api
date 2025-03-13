@@ -13,14 +13,14 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
 		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token não fornecido"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Could not find token in Authorization."})
 			c.Abort()
 			return
 		}
 
 		userID, err := utils.ValidateToken(tokenString)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token."})
 			c.Abort()
 			return
 		}

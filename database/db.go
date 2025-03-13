@@ -27,6 +27,6 @@ func ConnectDB() error {
 	}
 
 	DB = db
-	log.Println("Banco de dados conectado com sucesso")
+	log.Println("Successfully connected to DB.")
 	return nil
 }
