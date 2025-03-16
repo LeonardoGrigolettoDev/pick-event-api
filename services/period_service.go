@@ -18,6 +18,12 @@ func GetPeriodByID(id uuid.UUID) (models.Period, error) {
 	return period, err
 }
 
+func GetPeriodByTimestamp(timestamp int64) (models.Period, error) {
+	var period models.Period
+	err := database.DB.Where("start <= ? AND end >= ?", timestamp, timestamp).First(&period).Error
+	return period, err
+}
+
 // Criar usuário
 func CreatePeriod(period *models.Period) error {
 	return database.DB.Create(period).Error

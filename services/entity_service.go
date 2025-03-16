@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func GetEntity() ([]models.Entity, error) {
+func GetEntities() ([]models.Entity, error) {
 	var entities []models.Entity
 	err := database.DB.Find(&entities).Error
 	return entities, err
