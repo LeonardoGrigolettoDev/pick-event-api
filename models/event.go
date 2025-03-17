@@ -10,7 +10,7 @@ import (
 // TODO DECIDIR O MODELO DE HISTORICO
 type Event struct {
 	gorm.Model
-	ID          uuid.UUID `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	ID          uuid.UUID `json:"ID" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	Observation string    `json:"observation" gorm:"type:varchar(255)"`
 	Entity      Entity    `json:"entity" gorm:"foreignKey:EntityID"`
 	EntityID    uuid.UUID `json:"entity_id" gorm:"not null"`

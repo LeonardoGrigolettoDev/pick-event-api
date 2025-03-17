@@ -8,14 +8,14 @@ import (
 // Buscar todos os usuários
 func GetUsers() ([]models.User, error) {
 	var users []models.User
-	err := database.DB.Find(&users).Error
+	err := database.DB.Preload("Entity").Find(&users).Error
 	return users, err
 }
 
 // Buscar usuário por ID
 func GetUserByID(id uint) (models.User, error) {
 	var user models.User
-	err := database.DB.First(&user, id).Error
+	err := database.DB.Preload("Entity").First(&user, id).Error
 	return user, err
 }
 

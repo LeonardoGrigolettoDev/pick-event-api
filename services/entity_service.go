@@ -8,7 +8,7 @@ import (
 
 func GetEntities() ([]models.Entity, error) {
 	var entities []models.Entity
-	err := database.DB.Find(&entities).Error
+	err := database.DB.Preload("Entity").Find(&entities).Error
 	return entities, err
 }
 
