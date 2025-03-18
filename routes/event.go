@@ -1,17 +1,16 @@
 package routes
 
 import (
+	"github.com/LeonardoGrigolettoDev/pick-point.git/controllers"
 	"github.com/gin-gonic/gin"
 )
 
 func SetupEventRoutes(r *gin.RouterGroup) {
 	{
-		// r.GET("/users", controllers.GetUsers)
-		// r.GET("/users/:id", controllers.GetUserByID)
-		// r.POST("/users", controllers.CreateUser)
-		// r.PUT("/users/:id", controllers.UpdateUser)
-		// r.DELETE("/users/:id", controllers.DeleteUser)
-		// r.POST("/users/register", controllers.Register)
-		// r.POST("/login", controllers.Login)
+		r.GET("/events", controllers.GetEvents)
+		r.GET("/events/:id", controllers.GetEventByID)
+		r.PUT("/events/:id", controllers.UpdateEvent)
+		r.DELETE("/events/:id", controllers.DeleteEvent)
+		r.POST("/events/register", controllers.RegisterEvent)
 	}
 }

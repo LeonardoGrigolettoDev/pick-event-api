@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// TODO DECIDIR O MODELO DE HISTORICO
 type Event struct {
 	gorm.Model
 	ID          uuid.UUID `json:"ID" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`

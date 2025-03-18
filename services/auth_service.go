@@ -10,7 +10,6 @@ import (
 
 // Registro de usuário
 func RegisterUser(user *models.User) (string, error) {
-	//TODO before inserting user in DB, it have to be created Entity, this is about fk dependencies.
 	// Hash da senha antes de salvar
 	if err := user.HashPassword(); err != nil {
 		return "", err

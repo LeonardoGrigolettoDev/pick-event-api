@@ -5,8 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// TODO DECIDIR O MODELO DE ENTIDADE
-
 type Entity struct {
 	gorm.Model
 	ID   uuid.UUID `json:"ID" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`

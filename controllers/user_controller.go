@@ -10,6 +10,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func UserRegister(c *gin.Context) {
+	var user models.User
+
+	// Bind JSON
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Criar usuário e gerar token
+	token, err := services.RegisterUser(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"token": token})
+}
+
 // Listar todos os usuários
 func GetUsers(c *gin.Context) {
 	users, err := services.GetUsers()

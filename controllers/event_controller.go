@@ -31,7 +31,7 @@ func GetEventByID(c *gin.Context) {
 }
 
 // Criar usuário
-func CreateEvent(c *gin.Context) {
+func RegisterEvent(c *gin.Context) {
 	var event models.Event
 	if err := c.ShouldBindJSON(event); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

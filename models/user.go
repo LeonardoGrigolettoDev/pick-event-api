@@ -11,9 +11,9 @@ type User struct {
 	ID          uint             `json:"ID" gorm:"primaryKey"`
 	Name        string           `json:"name" gorm:"not null"`
 	Email       string           `json:"email" gorm:"unique not null"`
-	Password    string           `json:"password" gorm:"type: VARCHAR(255)"`
+	Password    string           `json:"password" gorm:"not null"`
 	Type        string           `json:"type"`
-	EntityID    uuid.UUID        `json:"entity_id"`
+	EntityID    uuid.UUID        `json:"entity_id" gorm:"unique"`
 	Entity      Entity           `json:"entity" gorm:"foreignKey:EntityID"`
 	Permissions []UserPermission `json:"permissions" gorm:"many2many:user_permissions;"`
 }
