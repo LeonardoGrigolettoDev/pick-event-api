@@ -33,15 +33,37 @@ func GetEventByID(c *gin.Context) {
 // Criar usuário
 func RegisterEvent(c *gin.Context) {
 	var event models.Event
-	if err := c.ShouldBindJSON(event); err != nil {
+	if err := c.ShouldBindJSON(&event); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	if err := services.CreateEvent(&event); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	//TODO verificação para histórico
+	switch event.Type {
+	case "recognition":
+		break
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event type."})
+		return
+	}
+	deviceUUID, err := uuid.Parse(event.DeviceID.String())
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid device_id format"})
+		return
+	}
+	if _, err := services.GetDeviceByID(deviceUUID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Device not found."})
+		return
+	}
+
+	event.DeviceID = deviceUUID
+	if event.Action == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Action is required."})
+		return
+	}
 	onPeriod, err := services.GetPeriodByTimestamp(event.EventTime.Unix())
 	if err != nil {
 		c.JSON(http.StatusCreated, gin.H{"error": "Could not find period to given timestamp, but event was created."})

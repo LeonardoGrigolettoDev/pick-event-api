@@ -13,6 +13,7 @@ func SetupRoutes(router *gin.Engine) {
 		SetupEntityRoutes(api)
 		SetupPeriodRoutes(api)
 		SetupUserPermissionRoutes(api)
+		SetupDeviceRoutes(api)
 		SetupEventRoutes(api)
 		SetupHistoryRoutes(api)
 		SetupAdjustmentRoutes(api)

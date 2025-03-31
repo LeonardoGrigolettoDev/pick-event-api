@@ -12,4 +12,6 @@ type History struct {
 	Event    Event     `json:"event" gorm:"foreignKey:EventID"`
 	PeriodID uuid.UUID `json:"period_id" gorm:"not null"`
 	Period   Period    `json:"period" gorm:"foreignKey:PeriodID"`
+	Entity   Entity    `json:"entity" gorm:"foreignKey:EntityID"`
+	EntityID uuid.UUID `json:"entity_id" gorm:"not null"`
 }
