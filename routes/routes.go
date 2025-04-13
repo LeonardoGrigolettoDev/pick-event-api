@@ -1,13 +1,13 @@
 package routes
 
 import (
-	"github.com/LeonardoGrigolettoDev/pick-point.git/middlewares"
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRoutes(router *gin.Engine) {
 	// auth := router.Group("/")
 	api := router.Group("/api")
+	// api.Use(middlewares.AuthMiddleware())
 	{
 		SetupUserRoutes(api)
 		SetupEntityRoutes(api)
@@ -17,6 +17,6 @@ func SetupRoutes(router *gin.Engine) {
 		SetupEventRoutes(api)
 		SetupHistoryRoutes(api)
 		SetupAdjustmentRoutes(api)
-		api.Use(middlewares.AuthMiddleware())
+		SetupEncodeRoutes(api)
 	}
 }

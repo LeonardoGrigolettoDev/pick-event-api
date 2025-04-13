@@ -36,6 +36,7 @@ func main() {
 
 	routines.VerifyDBTables()
 	redis.SetupRedisClient()
+	go redis.ListenEncodedFaces()
 	r := gin.Default()
 
 	routes.SetupRoutes(r)

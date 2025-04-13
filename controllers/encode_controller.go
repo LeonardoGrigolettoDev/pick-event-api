@@ -2,12 +2,15 @@ package controllers
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
+	"encoding/base64"
 	"io"
-	"mime/multipart"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
+	"github.com/LeonardoGrigolettoDev/pick-point.git/redis"
 	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
 	"github.com/gin-gonic/gin"
 )
@@ -43,72 +46,78 @@ func CreateEncode(c *gin.Context) {
 	}
 	c.JSON(http.StatusCreated, encode)
 }
+
 func RegisterEncode(c *gin.Context) {
 	// Pega o ID enviado no formulário
-	entityID := c.PostForm("entity_id")
-	if entityID == "" {
+	strEntityID := c.PostForm("entity_id")
+	typeEnconding := c.PostForm("type")
+	if strEntityID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Entity ID haves to be provided"})
 		return
 	}
 
-	// Pega o arquivo de imagem
-	file, header, err := c.Request.FormFile("image")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Erro ao ler imagem"})
-		return
+	switch typeEnconding {
+	case "face":
+		// Pega o arquivo de imagem
+		file, _, err := c.Request.FormFile("image")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Error on reading image"})
+			return
+		}
+		defer file.Close()
+
+		// Converte a imagem para base64
+		buf := new(bytes.Buffer)
+		_, err = io.Copy(buf, file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on converting image"})
+			return
+		}
+
+		imageBase64 := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+		// Preparando a mensagem para ser enviada ao Redis
+		entityID, err := uuid.Parse(strEntityID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid entity ID"})
+			return
+		}
+
+		entityExists, err := services.GetEntityByID(entityID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})
+			return
+		}
+		message := map[string]any{
+			"id":    entityExists.ID,
+			"type":  typeEnconding,
+			"image": imageBase64,
+		}
+
+		// Conectando ao Redis e publicando no canal 'encode_face'
+
+		// Publica a mensagem no canal 'encode_face'
+		ctx := context.Background()
+		err = redis.Redis.Publish(ctx, "face_encode", message).Err()
+
+		if err != nil {
+			println("Error on publish message to Redis:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on publish message to Redis"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Image sent with success.",
+			"result":  message,
+		})
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Could not encode this type.",
+			"result":  nil,
+		})
 	}
-	defer file.Close()
-
-	// Prepara para enviar ao Flask
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Campo "id"
-	writer.WriteField("entity_id", entityID)
-
-	// Campo "image"
-	part, err := writer.CreateFormFile("image", header.Filename)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create form file"})
-		return
-	}
-	_, err = io.Copy(part, file)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not copy file"})
-		return
-	}
-	writer.Close()
-
-	// Envia requisição para o backend Python
-	req, err := http.NewRequest("POST", "http://localhost:5000/encode-face", body)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create request with pick-event-service"})
-		return
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not send request to pick-event-service"})
-		return
-	}
-	defer resp.Body.Close()
-
-	// Lê a resposta
-	respBody, _ := io.ReadAll(resp.Body)
-	var result map[string]interface{}
-	json.Unmarshal(respBody, &result)
-
-	if resp.StatusCode != http.StatusOK {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": result})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Encoding enviado para processamento",
-		"result":  result,
-	})
 }
+
 func RecognizeEncode(c *gin.Context) {
 	var encode models.Encode
 	if err := c.ShouldBindJSON(&encode); err != nil {
