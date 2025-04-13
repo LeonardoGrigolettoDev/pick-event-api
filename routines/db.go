@@ -13,4 +13,5 @@ func VerifyDBTables() {
 	database.DB.AutoMigrate(&models.Entity{})
 	database.DB.AutoMigrate(&models.Event{})
 	database.DB.AutoMigrate(&models.History{})
+	database.DB.AutoMigrate(&models.Encode{})
 }

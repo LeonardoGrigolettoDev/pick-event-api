@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/LeonardoGrigolettoDev/pick-point.git/database"
+	"github.com/LeonardoGrigolettoDev/pick-point.git/redis"
 	"github.com/LeonardoGrigolettoDev/pick-point.git/routes"
 	"github.com/LeonardoGrigolettoDev/pick-point.git/routines"
 	"github.com/gin-gonic/gin"
@@ -34,11 +35,10 @@ func main() {
 	}
 
 	routines.VerifyDBTables()
-
+	redis.SetupRedisClient()
 	r := gin.Default()
 
 	routes.SetupRoutes(r)
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
