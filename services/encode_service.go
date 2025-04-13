@@ -13,8 +13,8 @@ func GetEncodes() ([]models.Encode, error) {
 
 func GetEncodeByID(id string) (models.Encode, error) {
 	var encode models.Encode
-	err := database.DB.First(&encode, id).Error
-	return encode, err
+	err := database.DB.Where("id = ?", id).First(&encode)
+	return encode, err.Error
 }
 
 // Criar usuário

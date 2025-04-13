@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -94,11 +95,15 @@ func RegisterEncode(c *gin.Context) {
 			"image": imageBase64,
 		}
 
-		// Conectando ao Redis e publicando no canal 'encode_face'
+		messageJSON, err := json.Marshal(message)
+		if err != nil {
+			println("Error on marshal message:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on serializing message to JSON"})
+			return
+		}
 
-		// Publica a mensagem no canal 'encode_face'
 		ctx := context.Background()
-		err = redis.Redis.Publish(ctx, "face_encode", message).Err()
+		err = redis.Redis.Publish(ctx, "encode", messageJSON).Err()
 
 		if err != nil {
 			println("Error on publish message to Redis:", err)
@@ -106,7 +111,7 @@ func RegisterEncode(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"message": "Image sent with success.",
 			"result":  message,
 		})
@@ -119,16 +124,71 @@ func RegisterEncode(c *gin.Context) {
 }
 
 func RecognizeEncode(c *gin.Context) {
-	var encode models.Encode
-	if err := c.ShouldBindJSON(&encode); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	typeRecognition := c.PostForm("type")
+	if typeRecognition == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing typeRecognition"})
 		return
 	}
-	// if err := services.CreateEncode(&encode); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 	return
-	// }
-	c.JSON(http.StatusCreated, encode)
+
+	image, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error on reading image"})
+		return
+	}
+
+	switch typeRecognition {
+	case "face":
+		file, err := image.Open()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Error on reading image"})
+			return
+		}
+		defer file.Close()
+
+		// Convert to base64
+		buf := new(bytes.Buffer)
+		_, err = io.Copy(buf, file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on converting image"})
+			return
+		}
+		imageBase64 := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+		// 👉 Gerar ID único
+		id := uuid.NewString()
+
+		// Prepare message
+		message := map[string]any{
+			"id":    id,
+			"type":  typeRecognition,
+			"image": imageBase64,
+		}
+
+		messageJSON, err := json.Marshal(message)
+		if err != nil {
+			println("Error on marshal message:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on serializing message to JSON"})
+			return
+		}
+
+		ctx := context.Background()
+		err = redis.Redis.Publish(ctx, "compare", messageJSON).Err()
+		if err != nil {
+			println("Error on publish message to Redis:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on publish message to Redis"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Image sent for analysts.",
+			"id":      id,
+		})
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Could not encode this type.",
+			"result":  nil,
+		})
+	}
 }
 
 func UpdateEncode(c *gin.Context) {

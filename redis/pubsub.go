@@ -7,19 +7,33 @@ import (
 	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 )
 
 type FaceEncoded struct {
-	ID       string `json:"id"`
-	Encoding string `json:"encoding"`
-	Status   string `json:"status"`
-	Message  string `json:"message,omitempty"`
+	ID       string         `json:"id"`
+	Encoding datatypes.JSON `json:"encoding"`
+	Status   string         `json:"status"`
+	Message  string         `json:"message,omitempty"`
+}
+
+type FaceCompared struct {
+	ID        string `json:"id"`
+	MatchedID string `json:"matched_id,omitempty"`
+	Status    string `json:"status"`
+}
+
+func saveEncodeToRedis(key string, data interface{}) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return Redis.Set(ctx, key, jsonData, 0).Err()
 }
 
 func ListenEncodedFaces() {
 	pubsub := Redis.Subscribe(ctx, "face_encoded")
 	ch := pubsub.Channel()
-
 	for msg := range ch {
 		var face FaceEncoded
 		err := json.Unmarshal([]byte(msg.Payload), &face)
@@ -39,10 +53,19 @@ func ListenEncodedFaces() {
 			continue
 		}
 
+		existingEncode, _ := services.GetEncodeByID("face-" + face.ID)
+		log.Println(existingEncode)
+		if existingEncode.ID != "" {
+			log.Println("Encode already exists:", existingEncode.ID)
+			saveEncodeToRedis(existingEncode.ID, existingEncode)
+			continue
+		}
+
 		encode := models.Encode{
 			ID:       "face-" + face.ID,
 			Type:     "face",
 			EntityID: entityID,
+			Encoding: face.Encoding,
 		}
 		err = services.CreateEncode(&encode)
 		if err != nil {
@@ -50,10 +73,40 @@ func ListenEncodedFaces() {
 			continue
 		}
 		log.Printf("Encode created: %s\n", encode.ID)
-		err = Redis.Set(ctx, "face:"+encode.ID, encode, 0).Err()
+		saveEncodeToRedis(encode.ID, encode)
+	}
+}
+
+func ListenComparedFaces() {
+	pubsub := Redis.Subscribe(ctx, "face_compared")
+	ch := pubsub.Channel()
+
+	for msg := range ch {
+		var face FaceCompared
+		err := json.Unmarshal([]byte(msg.Payload), &face)
 		if err != nil {
-			log.Printf("Could not set encode in Redis: %s\n", err)
+			log.Println("Could not decode message:", err)
 			continue
 		}
+
+		if face.Status != "success" {
+			log.Printf("[%s] Could not process: %s\n", face.ID, face.Status)
+			continue
+		}
+		log.Println("face ID:", face)
+
+		entityID, err := uuid.Parse(face.MatchedID)
+		if err != nil {
+			log.Printf("Invalid entity ID: %s\n", face.MatchedID)
+			continue
+		}
+		log.Println("Entity ID:", entityID)
+		entity, err := services.GetEntityByID(entityID)
+		if err != nil {
+			log.Printf("Could not find entity: %s\n", err)
+			continue
+		}
+		log.Println("Entity:", entity)
 	}
+
 }
