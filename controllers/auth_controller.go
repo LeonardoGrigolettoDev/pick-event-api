@@ -3,7 +3,7 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
 
 	"github.com/gin-gonic/gin"
 )

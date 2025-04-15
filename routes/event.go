@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/LeonardoGrigolettoDev/pick-point.git/controllers"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/controllers"
 	"github.com/gin-gonic/gin"
 )
 

@@ -3,7 +3,7 @@ package middlewares
 import (
 	"net/http"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/utils"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/utils"
 
 	"github.com/gin-gonic/gin"
 )

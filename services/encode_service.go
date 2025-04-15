@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/LeonardoGrigolettoDev/pick-point.git/database"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/database"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 )
 
 func GetEncodes() ([]models.Encode, error) {

@@ -5,10 +5,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/database"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/redis"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/routes"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/routines"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/database"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/redis"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/routes"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/routines"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )

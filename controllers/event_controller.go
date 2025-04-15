@@ -7,17 +7,23 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/redis"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/utils"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/redis"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
+var GetEventsFunc = services.GetEvents
+var GetEventByIDFunc = services.GetEventByID
+var UpdateEventFunc = services.UpdateEvent
+var DeleteEventFunc = services.DeleteEvent
+var CreateEventFunc = services.CreateEvent
+
 // Listar todos os usuários
 func GetEvents(c *gin.Context) {
-	events, err := services.GetEvents()
+	events, err := GetEventsFunc()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -28,7 +34,7 @@ func GetEvents(c *gin.Context) {
 // Buscar usuário por ID
 func GetEventByID(c *gin.Context) {
 	id, _ := uuid.Parse(c.Param("id"))
-	events, err := services.GetEventByID(id)
+	events, err := GetEventByIDFunc(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found."})
 		return
@@ -37,8 +43,6 @@ func GetEventByID(c *gin.Context) {
 }
 
 func RegisterEvent(c *gin.Context) {
-	// Verifica se há uma imagem na requisição
-
 	typeEvent := c.PostForm("type")
 	typeAction := c.PostForm("action")
 	file, err := c.FormFile("image")
@@ -123,79 +127,8 @@ func RegisterEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event type"})
 		return
 	}
-
-	// Pegando os outros dados da requisição
-	// event.DeviceID = uuid.MustParse(c.PostForm("device_id"))
-
-	// // Se veio uma imagem, forçamos um tipo específico
-	// if hasImage {
-	// 	if c.PostForm("event_time") == "" {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "event_time is required"})
-	// 		return
-	// 	}
-	// 	event.Type = "image_event"
-	// 	event.EventTime, err = time.Parse(time.RFC3339, c.PostForm("event_time"))
-	// 	if err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event_time"})
-	// 		return
-	// 	}
-	// }
-
-	// // Validações
-	// if event.DeviceID == uuid.Nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid device_id"})
-	// 	return
-	// }
-	// if event.Action == "" {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Action is required"})
-	// 	return
-	// }
-
-	// // Verifica se o device existe
-	// device, err := services.GetDeviceByID(event.DeviceID)
-	// if err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Device not found"})
-	// 	return
-	// }
-	// switch event.Action {
-	// case "face":
-	// 	//TODO INCLUDE FACE RECOGNITION AND VERIFICATION
-	// 	break
-	// default:
-	// 	{
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
-	// 		return
-	// 	}
-
-	// }
-	// // Criando o evento
-	// event.Device = device
-	// if err := services.CreateEvent(&event); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 	return
-	// }
-
-	// // Criando histórico do evento (opcional)
-	// onPeriod, err := services.GetPeriodByTimestamp(time.Now().Unix())
-	// if err == nil {
-	// 	services.CreateHistory(&models.History{
-	// 		EventID:  event.ID,
-	// 		PeriodID: onPeriod.ID,
-	// 	})
-	// }
-
-	// // Retorno
-	// response := gin.H{
-	// 	"message": "Event registered successfully",
-	// 	"event":   event,
-	// }
-	// if hasImage {
-	// 	response["image"] = imagePath
-	// }
-	// c.JSON(http.StatusCreated, response)
 }
 
-// Atualizar usuário
 func UpdateEvent(c *gin.Context) {
 	id, _ := uuid.Parse(c.Param("id"))
 	var event models.Event
@@ -204,7 +137,7 @@ func UpdateEvent(c *gin.Context) {
 		return
 	}
 	event.ID = id
-	if err := services.UpdateEvent(&event); err != nil {
+	if err := UpdateEventFunc(&event); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -214,7 +147,7 @@ func UpdateEvent(c *gin.Context) {
 // Deletar usuário
 func DeleteEvent(c *gin.Context) {
 	id, _ := uuid.Parse(c.Param("id"))
-	if err := services.DeleteEvent(id); err != nil {
+	if err := DeleteEventFunc(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

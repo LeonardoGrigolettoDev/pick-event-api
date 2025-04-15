@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )

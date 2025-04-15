@@ -3,9 +3,9 @@ package services
 import (
 	"errors"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/database"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/utils"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/database"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/utils"
 )
 
 // Registro de usuário

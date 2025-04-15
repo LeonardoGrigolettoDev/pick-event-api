@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
 
 	"github.com/gin-gonic/gin"
 )

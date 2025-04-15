@@ -8,10 +8,10 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/redis"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
-	"github.com/LeonardoGrigolettoDev/pick-point.git/utils"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/redis"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
