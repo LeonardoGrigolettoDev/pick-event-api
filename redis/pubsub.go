@@ -53,8 +53,7 @@ func ListenEncodedFaces() {
 			continue
 		}
 
-		existingEncode, _ := services.GetEncodeByID("face-" + face.ID)
-		log.Println(existingEncode)
+		existingEncode, _ := services.GetEncodeByID("facial-" + face.ID)
 		if existingEncode.ID != "" {
 			log.Println("Encode already exists:", existingEncode.ID)
 			saveEncodeToRedis(existingEncode.ID, existingEncode)
@@ -62,8 +61,8 @@ func ListenEncodedFaces() {
 		}
 
 		encode := models.Encode{
-			ID:       "face-" + face.ID,
-			Type:     "face",
+			ID:       "facial:" + face.ID,
+			Type:     "facial",
 			EntityID: entityID,
 			Encoding: face.Encoding,
 		}
@@ -80,7 +79,7 @@ func ListenEncodedFaces() {
 func ListenComparedFaces() {
 	pubsub := Redis.Subscribe(ctx, "face_compared")
 	ch := pubsub.Channel()
-
+	log.Println("Listening to compared faces...")
 	for msg := range ch {
 		var face FaceCompared
 		err := json.Unmarshal([]byte(msg.Payload), &face)
@@ -88,12 +87,12 @@ func ListenComparedFaces() {
 			log.Println("Could not decode message:", err)
 			continue
 		}
-
+		log.Println(face)
 		if face.Status != "success" {
 			log.Printf("[%s] Could not process: %s\n", face.ID, face.Status)
 			continue
 		}
-		log.Println("face ID:", face)
+		log.Println("face ID:", face.ID)
 
 		entityID, err := uuid.Parse(face.MatchedID)
 		if err != nil {
@@ -107,6 +106,19 @@ func ListenComparedFaces() {
 			continue
 		}
 		log.Println("Entity:", entity)
+		event := models.Event{
+			EntityID: entity.ID,
+			Entity:   entity,
+			Type:     "facial",
+			Action:   "recognize",
+		}
+		err = services.CreateEvent(&event)
+		if err != nil {
+			log.Printf("Could not create event: %s\n", err)
+			continue
+		}
+		log.Printf("Event created: %s\n", event.ID)
+		//MAIS TARDE PUBLICAR EM ALGUMA PORTA DE RESPOSTA WEBSOCKET
 	}
 
 }

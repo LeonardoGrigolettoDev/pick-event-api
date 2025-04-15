@@ -3,17 +3,17 @@ package controllers
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
-
-	"github.com/google/uuid"
 
 	"github.com/LeonardoGrigolettoDev/pick-point.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-point.git/redis"
 	"github.com/LeonardoGrigolettoDev/pick-point.git/services"
+	"github.com/LeonardoGrigolettoDev/pick-point.git/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func GetEncodes(c *gin.Context) {
@@ -49,7 +49,6 @@ func CreateEncode(c *gin.Context) {
 }
 
 func RegisterEncode(c *gin.Context) {
-	// Pega o ID enviado no formulário
 	strEntityID := c.PostForm("entity_id")
 	typeEnconding := c.PostForm("type")
 	if strEntityID == "" {
@@ -58,8 +57,7 @@ func RegisterEncode(c *gin.Context) {
 	}
 
 	switch typeEnconding {
-	case "face":
-		// Pega o arquivo de imagem
+	case "facial":
 		file, _, err := c.Request.FormFile("image")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Error on reading image"})
@@ -67,7 +65,6 @@ func RegisterEncode(c *gin.Context) {
 		}
 		defer file.Close()
 
-		// Converte a imagem para base64
 		buf := new(bytes.Buffer)
 		_, err = io.Copy(buf, file)
 		if err != nil {
@@ -75,22 +72,25 @@ func RegisterEncode(c *gin.Context) {
 			return
 		}
 
-		imageBase64 := base64.StdEncoding.EncodeToString(buf.Bytes())
-
-		// Preparando a mensagem para ser enviada ao Redis
+		imageBase64, err := utils.EncodeImageToBase64(buf.Bytes())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on image to convertion"})
+			return
+		}
 		entityID, err := uuid.Parse(strEntityID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid entity ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid entity uuid"})
 			return
 		}
 
 		entityExists, err := services.GetEntityByID(entityID)
+		log.Println(entityExists)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})
 			return
 		}
 		message := map[string]any{
-			"id":    entityExists.ID,
+			"id":    entityID,
 			"type":  typeEnconding,
 			"image": imageBase64,
 		}
@@ -126,7 +126,7 @@ func RegisterEncode(c *gin.Context) {
 func RecognizeEncode(c *gin.Context) {
 	typeRecognition := c.PostForm("type")
 	if typeRecognition == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing typeRecognition"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing type param."})
 		return
 	}
 
@@ -137,7 +137,7 @@ func RecognizeEncode(c *gin.Context) {
 	}
 
 	switch typeRecognition {
-	case "face":
+	case "facial":
 		file, err := image.Open()
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Error on reading image"})
@@ -152,14 +152,17 @@ func RecognizeEncode(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on converting image"})
 			return
 		}
-		imageBase64 := base64.StdEncoding.EncodeToString(buf.Bytes())
+		imageBase64, err := utils.EncodeImageToBase64(buf.Bytes())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on image to convertion"})
+			return
+		}
 
-		// 👉 Gerar ID único
-		id := uuid.NewString()
+		randomID := uuid.NewString()
 
 		// Prepare message
 		message := map[string]any{
-			"id":    id,
+			"id":    randomID,
 			"type":  typeRecognition,
 			"image": imageBase64,
 		}
@@ -181,7 +184,7 @@ func RecognizeEncode(c *gin.Context) {
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Image sent for analysts.",
-			"id":      id,
+			"id":      randomID,
 		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{
