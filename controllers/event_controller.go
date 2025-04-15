@@ -20,6 +20,7 @@ var GetEventByIDFunc = services.GetEventByID
 var UpdateEventFunc = services.UpdateEvent
 var DeleteEventFunc = services.DeleteEvent
 var CreateEventFunc = services.CreateEvent
+var EncodeImageToBase64 = utils.EncodeImageToBase64
 
 // Listar todos os usuários
 func GetEvents(c *gin.Context) {
@@ -77,7 +78,7 @@ func RegisterEvent(c *gin.Context) {
 			}
 			switch typeAction {
 			case "recognition":
-				imageBase64, err := utils.EncodeImageToBase64(buf.Bytes())
+				imageBase64, err := EncodeImageToBase64(buf.Bytes())
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on image to convertion"})
 					return
