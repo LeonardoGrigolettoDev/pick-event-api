@@ -23,7 +23,7 @@ type FaceCompared struct {
 	Status    string `json:"status"`
 }
 
-func saveEncodeToRedis(key string, data interface{}) error {
+func SaveEncodeToRedis(key string, data interface{}) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func ListenEncodedFaces() {
 		existingEncode, _ := services.GetEncodeByID("facial-" + face.ID)
 		if existingEncode.ID != "" {
 			log.Println("Encode already exists:", existingEncode.ID)
-			saveEncodeToRedis(existingEncode.ID, existingEncode)
+			SaveEncodeToRedis(existingEncode.ID, existingEncode)
 			continue
 		}
 
@@ -72,7 +72,7 @@ func ListenEncodedFaces() {
 			continue
 		}
 		log.Printf("Encode created: %s\n", encode.ID)
-		saveEncodeToRedis(encode.ID, encode)
+		SaveEncodeToRedis(encode.ID, encode)
 	}
 }
 

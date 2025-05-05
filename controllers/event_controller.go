@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/redis"
@@ -55,6 +57,7 @@ func RegisterEvent(c *gin.Context) {
 
 	if err != nil {
 		if typeEvent != "manual" {
+			log.Println(err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
 			return
 		}
@@ -69,7 +72,6 @@ func RegisterEvent(c *gin.Context) {
 				return
 			}
 			defer src.Close()
-
 			buf := new(bytes.Buffer)
 			_, err = io.Copy(buf, src)
 			if err != nil {
@@ -100,25 +102,81 @@ func RegisterEvent(c *gin.Context) {
 					return
 				}
 
-				ctx := context.Background()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
 				err = redis.Redis.Publish(ctx, "compare", messageJSON).Err()
 				if err != nil {
 					println("Error on publish message to Redis:", err)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on publish message to Redis"})
 					return
 				}
+				pubsub := redis.Redis.Subscribe(ctx, "face_compared")
+				defer pubsub.Close()
+				ch := pubsub.Channel()
+				log.Println("Listening to compared faces...")
+				for {
+					select {
+					case msg := <-ch:
+						var face redis.FaceCompared
+						if err := json.Unmarshal([]byte(msg.Payload), &face); err != nil {
+							c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding Redis message"})
+							return
+						}
 
-				c.JSON(http.StatusOK, gin.H{
-					"message": "Image sent for analysts.",
-					"id":      randomID,
-				})
+						if face.ID != randomID {
+							continue
+						}
 
+						if face.Status != "success" {
+							if face.Status == "not_found" {
+								c.JSON(http.StatusNotFound, gin.H{"error": "Face not found"})
+							} else {
+								c.JSON(http.StatusInternalServerError, gin.H{"error": "Processing error"})
+							}
+							return
+						}
+
+						entityID, err := uuid.Parse(face.MatchedID)
+						if err != nil {
+							c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid entity ID"})
+							return
+						}
+
+						entity, err := services.GetEntityByID(entityID)
+						if err != nil {
+							c.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})
+							return
+						}
+
+						event := models.Event{
+							EntityID: entity.ID,
+							Entity:   entity,
+							Type:     "facial",
+							Action:   "recognize",
+						}
+
+						if err := services.CreateEvent(&event); err != nil {
+							c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating event"})
+							return
+						}
+
+						c.JSON(http.StatusOK, gin.H{
+							"message": "Event processed successfully",
+							"event":   event,
+							"image":   imageBase64,
+						})
+						return
+
+					case <-ctx.Done():
+						c.JSON(http.StatusRequestTimeout, gin.H{"error": "Timeout waiting for face comparison"})
+						return
+					}
+				}
 			default:
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
 				return
 
 			}
-			break
 		}
 
 	case "manual":
