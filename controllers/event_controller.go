@@ -45,7 +45,7 @@ func GetEventByID(c *gin.Context) {
 	c.JSON(http.StatusOK, events)
 }
 
-func RegisterEvent(c *gin.Context) {
+func CreateEvent(c *gin.Context) {
 	typeEvent := c.PostForm("type")
 	typeAction := c.PostForm("action")
 	file, err := c.FormFile("image")

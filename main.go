@@ -37,7 +37,7 @@ func main() {
 	routines.VerifyDBTables()
 	redis.SetupRedisClient()
 	go redis.ListenEncodedFaces()
-	go redis.ListenComparedFaces()
+	// go redis.ListenComparedFaces()
 
 	gin.SetMode(gin.DebugMode) // Habilita o modo debug
 	r := gin.Default()

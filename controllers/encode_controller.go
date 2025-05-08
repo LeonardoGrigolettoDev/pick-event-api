@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/redis"
@@ -35,22 +36,23 @@ func GetEncodeByID(c *gin.Context) {
 	c.JSON(http.StatusOK, encode)
 }
 
-func CreateEncode(c *gin.Context) {
-	var encode models.Encode
-	if err := c.ShouldBindJSON(&encode); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if err := services.CreateEncode(&encode); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusCreated, encode)
-}
+// func CreateEncode(c *gin.Context) {
+// 	var encode models.Encode
+// 	if err := c.ShouldBindJSON(&encode); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 		return
+// 	}
+// 	if err := services.CreateEncode(&encode); err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+// 	c.JSON(http.StatusCreated, encode)
+// }
 
 func RegisterEncode(c *gin.Context) {
 	strEntityID := c.PostForm("entity_id")
 	typeEnconding := c.PostForm("type")
+	override := c.PostForm("override")
 	if strEntityID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Entity ID haves to be provided"})
 		return
@@ -102,7 +104,8 @@ func RegisterEncode(c *gin.Context) {
 			return
 		}
 
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 		err = redis.Redis.Publish(ctx, "encode", messageJSON).Err()
 
 		if err != nil {
@@ -110,82 +113,94 @@ func RegisterEncode(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on publish message to Redis"})
 			return
 		}
+		pubsub := redis.Redis.Subscribe(ctx, "face_encoded")
+		defer pubsub.Close()
+		ch := pubsub.Channel()
+		for msg := range ch {
+			var face redis.FaceEncoded
+			err := json.Unmarshal([]byte(msg.Payload), &face)
+			if err != nil {
+				log.Println("Could not decode message:", err)
+				continue
+			}
 
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Image sent with success.",
-			"result":  message,
-		})
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Could not encode this type.",
-			"result":  nil,
-		})
-	}
-}
+			if face.Status != "success" {
+				log.Printf("[%s] Could not process: %s\n", face.ID, face.Message)
+				continue
+			}
+			if face.ID != strEntityID {
+				continue
+			}
+			entityID, err := uuid.Parse(face.ID)
+			if err != nil {
+				log.Printf("Invalid entity ID: %s\n", face.ID)
+				c.JSON(http.StatusBadRequest, gin.H{
+					"entity_id": face.ID,
+					"message":   "Invalid entity ID",
+					"result":    nil,
+				})
+				return
+			}
 
-func RecognizeEncode(c *gin.Context) {
-	typeRecognition := c.PostForm("type")
-	if typeRecognition == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing type param."})
-		return
-	}
+			existingEncode, _ := services.GetEncodeByID("facial:" + face.ID)
+			if existingEncode.ID != "" {
+				redis.SaveEncodeToRedis(existingEncode.ID, existingEncode)
+				if override != "true" {
+					log.Println("Encode already exists:", existingEncode.ID)
+					c.JSON(http.StatusAccepted, gin.H{
+						"entity_id": face.ID,
+						"message":   "Encode already exists for this entity",
+						"result":    nil,
+					})
+					return
+				}
+				existingEncode.Encoding = face.Encoding
+				err = services.UpdateEncode(&existingEncode)
+				if err != nil {
+					log.Printf("Could not update encode: %s\n", err.Error())
+					c.JSON(http.StatusBadRequest, gin.H{
+						"entity_id": face.ID,
+						"message":   "Could not update encode for this entity",
+						"result":    nil,
+					})
+					return
+				}
+				log.Printf("Encode updated: %s\n", existingEncode.ID)
+				redis.SaveEncodeToRedis(existingEncode.ID, existingEncode)
+				c.JSON(http.StatusOK, gin.H{
+					"message":   "Encode updated successfully",
+					"entity_id": face.ID,
+					"result":    message,
+				})
+				return
+			}
 
-	image, err := c.FormFile("image")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Error on reading image"})
-		return
-	}
-
-	switch typeRecognition {
-	case "facial":
-		file, err := image.Open()
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Error on reading image"})
+			encode := models.Encode{
+				ID:       "facial:" + face.ID,
+				Type:     "facial",
+				EntityID: entityID,
+				Encoding: face.Encoding,
+			}
+			err = services.CreateEncode(&encode)
+			if err != nil {
+				log.Printf("Could not create encode: %s\n", err.Error())
+				c.JSON(http.StatusBadRequest, gin.H{
+					"entity_id": face.ID,
+					"message":   "Could not create encode for this entity",
+					"result":    nil,
+				})
+				return
+			}
+			log.Printf("Encode created: %s\n", encode.ID)
+			redis.SaveEncodeToRedis(encode.ID, encode)
+			c.JSON(http.StatusOK, gin.H{
+				"message":   "Encode created successfully",
+				"entity_id": face.ID,
+				"result":    message,
+			})
 			return
 		}
-		defer file.Close()
 
-		// Convert to base64
-		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, file)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on converting image"})
-			return
-		}
-		imageBase64, err := utils.EncodeImageToBase64(buf.Bytes())
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on image to convertion"})
-			return
-		}
-
-		randomID := uuid.NewString()
-
-		// Prepare message
-		message := map[string]any{
-			"id":    randomID,
-			"type":  typeRecognition,
-			"image": imageBase64,
-		}
-
-		messageJSON, err := json.Marshal(message)
-		if err != nil {
-			println("Error on marshal message:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on serializing message to JSON"})
-			return
-		}
-
-		ctx := context.Background()
-		err = redis.Redis.Publish(ctx, "compare", messageJSON).Err()
-		if err != nil {
-			println("Error on publish message to Redis:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error on publish message to Redis"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Image sent for analysts.",
-			"id":      randomID,
-		})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Could not encode this type.",

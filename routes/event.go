@@ -11,6 +11,6 @@ func SetupEventRoutes(r *gin.RouterGroup) {
 		r.GET("/events/:id", controllers.GetEventByID)
 		r.PUT("/events/:id", controllers.UpdateEvent)
 		r.DELETE("/events/:id", controllers.DeleteEvent)
-		r.POST("/events/register", controllers.RegisterEvent)
+		r.POST("/events", controllers.CreateEvent)
 	}
 }
