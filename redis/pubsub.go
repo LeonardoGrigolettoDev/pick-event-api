@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 
@@ -29,6 +30,33 @@ func SaveEncodeToRedis(key string, data interface{}) error {
 		return err
 	}
 	return Redis.Set(ctx, key, jsonData, 0).Err()
+}
+
+func WaitForFaceComparisonResponse(ctx context.Context, expectedID string) (*FaceCompared, error) {
+	pubsub := Redis.Subscribe(ctx, "face_compared")
+	defer pubsub.Close()
+
+	ch := pubsub.Channel()
+
+	for {
+		select {
+		case msg := <-ch:
+			var face FaceCompared
+			if err := json.Unmarshal([]byte(msg.Payload), &face); err != nil {
+				log.Println("Error decoding Redis message:", err)
+				continue
+			}
+
+			if face.ID != expectedID {
+				continue
+			}
+
+			return &face, nil
+
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
 }
 
 func ListenEncodedFaces() {

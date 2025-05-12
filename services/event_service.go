@@ -6,6 +6,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type EventService interface {
+	GetEvents() ([]models.Event, error)
+	GetEventByID(uuid.UUID) (models.Event, error)
+	UpdateEvent(*models.Event) error
+	DeleteEvent(uuid.UUID) error
+}
+
 func GetEvents() ([]models.Event, error) {
 	var events []models.Event
 	err := database.DB.Find(&events).Error
