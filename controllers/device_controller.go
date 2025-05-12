@@ -44,8 +44,6 @@ func CreateDevice(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "MAC address is required for this device type."})
 			return
 		}
-	case "UI":
-		break
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid device type."})
 		return

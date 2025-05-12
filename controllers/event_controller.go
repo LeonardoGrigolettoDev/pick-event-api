@@ -141,9 +141,10 @@ func CreateEvent(c *gin.Context) {
 							c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid entity ID"})
 							return
 						}
-
 						entity, err := services.GetEntityByID(entityID)
 						if err != nil {
+							log.Println(err.Error())
+
 							c.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})
 							return
 						}

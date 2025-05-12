@@ -36,7 +36,7 @@ func main() {
 
 	routines.VerifyDBTables()
 	redis.SetupRedisClient()
-	go redis.ListenEncodedFaces()
+	// go redis.ListenEncodedFaces()
 	// go redis.ListenComparedFaces()
 
 	gin.SetMode(gin.DebugMode) // Habilita o modo debug
@@ -49,7 +49,7 @@ func main() {
 	}
 
 	// Suas rotas aqui...
-	r.Run()
+	// r.Run()
 	r.Run(":" + port)
 	log.Println("Server running on PORT " + port)
 }
