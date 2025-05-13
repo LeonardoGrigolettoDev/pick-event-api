@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -16,82 +17,100 @@ import (
 	"github.com/google/uuid"
 )
 
-var GetEventsFunc = services.GetEvents
-var GetEventByIDFunc = services.GetEventByID
-var UpdateEventFunc = services.UpdateEvent
-var DeleteEventFunc = services.DeleteEvent
-var CreateEventFunc = services.CreateEvent
-var EncodeImageToBase64 = utils.EncodeImageToBase64
+type EventController struct {
+	Service services.EventService
+}
+
+func NewEventController(service services.EventService) *EventController {
+	return &EventController{Service: service}
+}
 
 // Listar todos os usuários
-func GetEvents(c *gin.Context) {
-	events, err := GetEventsFunc()
+func (c *EventController) GetEvents(ctx *gin.Context) {
+	events, err := c.Service.GetAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, events)
+	ctx.JSON(http.StatusOK, events)
 }
 
 // Buscar usuário por ID
-func GetEventByID(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	events, err := GetEventByIDFunc(id)
+func (c *EventController) GetEventByID(ctx *gin.Context) {
+	id, _ := uuid.Parse(ctx.Param("id"))
+	events, err := c.Service.GetByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found."})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Event not found."})
 		return
 	}
-	c.JSON(http.StatusOK, events)
+	ctx.JSON(http.StatusOK, events)
 }
 
-func CreateEvent(c *gin.Context) {
-	typeEvent := c.PostForm("type")
-	typeAction := c.PostForm("action")
+func (c *EventController) CreateEvent(ctx *gin.Context) {
+	typeEvent := ctx.PostForm("type")
+	typeAction := ctx.PostForm("action")
 
 	if typeEvent == "" || typeAction == "" {
-		utils.RespondWithError(c, http.StatusBadRequest, "Types are required")
+		utils.RespondWithError(ctx, http.StatusBadRequest, "Types are required")
 		return
 	}
 
 	switch typeEvent {
 	case "facial":
 		if typeAction != "recognition" {
-			utils.RespondWithError(c, http.StatusBadRequest, "Invalid action")
+			utils.RespondWithError(ctx, http.StatusBadRequest, "Invalid action")
 			return
 		}
-		handleFacialRecognition(c)
+		event, imageBase64 := handleFacialRecognition(ctx)
+		log.Println("Event: ", event)
+		if event.EntityID == uuid.Nil {
+			return
+		}
+		if err := c.Service.Create(&event); err != nil {
+			if err.Error() == "ERROR: duplicate key value violates unique constraint \"uni_events_entity_id_type_action_key\" (SQLSTATE 23505)" {
+				utils.RespondWithError(ctx, http.StatusBadRequest, "Event already exists on database.")
+				return
+			}
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusCreated, gin.H{
+			"message": "Event processed successfully",
+			"event":   event,
+			"image":   imageBase64,
+		})
 	case "manual":
-		c.JSON(http.StatusNotImplemented, gin.H{"message": "Not implemented"})
+		ctx.JSON(http.StatusNotImplemented, gin.H{"message": "Not implemented"})
 	default:
-		utils.RespondWithError(c, http.StatusBadRequest, "Invalid event type")
+		utils.RespondWithError(ctx, http.StatusBadRequest, "Invalid event type")
 	}
 }
 
-func handleFacialRecognition(c *gin.Context) {
-	file, err := c.FormFile("image")
+func handleFacialRecognition(ctx *gin.Context) (models.Event, string) {
+	file, err := ctx.FormFile("image")
 	if err != nil {
-		utils.RespondWithError(c, http.StatusBadRequest, "Image is required")
-		return
+		utils.RespondWithError(ctx, http.StatusBadRequest, "Image is required")
+		return models.Event{}, ""
 	}
 
 	src, err := file.Open()
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Cannot open image")
-		return
+		utils.RespondWithError(ctx, http.StatusInternalServerError, "Cannot open image")
+		return models.Event{}, ""
 	}
 	defer src.Close()
 
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, src)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error converting image")
-		return
+		utils.RespondWithError(ctx, http.StatusInternalServerError, "Error converting image")
+		return models.Event{}, ""
 	}
 
-	imageBase64, err := EncodeImageToBase64(buf.Bytes())
+	imageBase64, err := utils.EncodeImageToBase64(buf.Bytes())
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error encoding image")
-		return
+		utils.RespondWithError(ctx, http.StatusInternalServerError, "Error encoding image")
+		return models.Event{}, ""
 	}
 
 	randomID := uuid.NewString()
@@ -103,44 +122,44 @@ func handleFacialRecognition(c *gin.Context) {
 
 	messageJSON, err := json.Marshal(message)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error serializing message")
-		return
+		utils.RespondWithError(ctx, http.StatusInternalServerError, "Error serializing message")
+		return models.Event{}, ""
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	redisCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err = redis.Redis.Publish(ctx, "compare", messageJSON).Err()
+	err = redis.Redis.Publish(redisCtx, "compare", messageJSON).Err()
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error publishing to Redis")
-		return
+		utils.RespondWithError(ctx, http.StatusInternalServerError, "Error publishing to Redis")
+		return models.Event{}, ""
 	}
 
 	face, err := redis.WaitForFaceComparisonResponse(ctx, randomID)
 	if err != nil {
 		if err == context.DeadlineExceeded {
-			utils.RespondWithError(c, http.StatusRequestTimeout, "Timeout waiting for comparison")
-			return
+			utils.RespondWithError(ctx, http.StatusRequestTimeout, "Timeout waiting for comparison")
+			return models.Event{}, ""
 		}
-		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
-		return
+		utils.RespondWithError(ctx, http.StatusInternalServerError, err.Error())
+		return models.Event{}, ""
 	}
 
 	if face.Status == "not_found" {
-		utils.RespondWithError(c, http.StatusNotFound, "Face not found")
-		return
+		utils.RespondWithError(ctx, http.StatusNotFound, "Face not found")
+		return models.Event{}, ""
 	}
 
 	entityID, err := uuid.Parse(face.MatchedID)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusBadRequest, "Invalid entity ID")
-		return
+		utils.RespondWithError(ctx, http.StatusBadRequest, "Invalid entity ID")
+		return models.Event{}, ""
 	}
 
 	entity, err := services.GetEntityByID(entityID)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusNotFound, "Entity not found")
-		return
+		utils.RespondWithError(ctx, http.StatusNotFound, "Entity not found")
+		return models.Event{}, ""
 	}
 
 	event := models.Event{
@@ -149,40 +168,31 @@ func handleFacialRecognition(c *gin.Context) {
 		Type:     "facial",
 		Action:   "recognize",
 	}
+	return event, imageBase64
 
-	if err := services.CreateEvent(&event); err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Error creating event")
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Event processed successfully",
-		"event":   event,
-		"image":   imageBase64,
-	})
 }
 
-func UpdateEvent(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
+func (c *EventController) UpdateEvent(ctx *gin.Context) {
+	id, _ := uuid.Parse(ctx.Param("id"))
 	var event models.Event
-	if err := c.ShouldBindJSON(&event); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&event); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	event.ID = id
-	if err := UpdateEventFunc(&event); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := c.Service.Update(&event); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, event)
+	ctx.JSON(http.StatusOK, event)
 }
 
 // Deletar usuário
-func DeleteEvent(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	if err := DeleteEventFunc(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+func (c *EventController) DeleteEvent(ctx *gin.Context) {
+	id, _ := uuid.Parse(ctx.Param("id"))
+	if err := c.Service.Delete(id); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": id})
+	ctx.JSON(http.StatusOK, gin.H{"message": id})
 }

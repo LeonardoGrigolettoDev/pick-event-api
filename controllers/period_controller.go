@@ -9,63 +9,71 @@ import (
 	"github.com/google/uuid"
 )
 
+type PeriodController struct {
+	Service services.PeriodService
+}
+
+func NewPeriodController(service services.PeriodService) *PeriodController {
+	return &PeriodController{Service: service}
+}
+
 // Listar todos os usuários
-func GetPeriods(c *gin.Context) {
-	periods, err := services.GetPeriods()
+func (c *PeriodController) GetPeriods(ctx *gin.Context) {
+	periods, err := c.Service.GetAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, periods)
+	ctx.JSON(http.StatusOK, periods)
 }
 
 // Buscar usuário por ID
-func GetPeriodByID(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	period, err := services.GetPeriodByID(id)
+func (c *PeriodController) GetPeriodByID(ctx *gin.Context) {
+	id, _ := uuid.Parse(ctx.Param("id"))
+	period, err := c.Service.GetByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Period not found."})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Period not found."})
 		return
 	}
-	c.JSON(http.StatusOK, period)
+	ctx.JSON(http.StatusOK, period)
 }
 
 // Criar usuário
-func CreatePeriod(c *gin.Context) {
+func (c *PeriodController) CreatePeriod(ctx *gin.Context) {
 	var period models.Period
-	if err := c.ShouldBindJSON(period); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(period); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := services.CreatePeriod(&period); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := c.Service.Create(&period); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, period)
+	ctx.JSON(http.StatusCreated, period)
 }
 
 // Atualizar usuário
-func UpdatePeriod(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
+func (c *PeriodController) UpdatePeriod(ctx *gin.Context) {
+	id, _ := uuid.Parse(ctx.Param("id"))
 	var period models.Period
-	if err := c.ShouldBindJSON(&period); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&period); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	period.ID = id
-	if err := services.UpdatePeriod(&period); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := c.Service.Update(&period); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, period)
+	ctx.JSON(http.StatusOK, period)
 }
 
 // Deletar usuário
-func DeletePeriod(c *gin.Context) {
-	id, _ := uuid.Parse(c.Param("id"))
-	if err := services.DeletePeriod(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+func (c *PeriodController) DeletePeriod(ctx *gin.Context) {
+	id, _ := uuid.Parse(ctx.Param("id"))
+	if err := c.Service.Delete(id); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": id})
+	ctx.JSON(http.StatusOK, gin.H{"message": id})
 }
