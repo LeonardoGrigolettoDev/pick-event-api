@@ -1,34 +1,49 @@
 package services
 
 import (
-	"github.com/LeonardoGrigolettoDev/pick-event-api.git/database"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-func GetEntities() ([]models.Entity, error) {
+type EntityService interface {
+	GetAll() ([]models.Entity, error)
+	Create(entity *models.Entity) error
+	GetByID(id uuid.UUID) (models.Entity, error)
+	Update(entity *models.Entity) error
+	Delete(id uuid.UUID) error
+}
+type entityService struct {
+	db *gorm.DB
+}
+
+func NewEntityService(db *gorm.DB) EntityService {
+	return &entityService{db: db}
+}
+
+func (s *entityService) GetAll() ([]models.Entity, error) {
 	var entities []models.Entity
-	err := database.DB.Preload("Entity").Find(&entities).Error
+	err := s.db.Preload("Entity").Find(&entities).Error
 	return entities, err
 }
 
-func GetEntityByID(id uuid.UUID) (models.Entity, error) {
+func (s *entityService) GetByID(id uuid.UUID) (models.Entity, error) {
 	var entity models.Entity
-	err := database.DB.First(&entity, id).Error
+	err := s.db.First(&entity, id).Error
 	return entity, err
 }
 
 // Criar usuário
-func CreateEntity(entity *models.Entity) error {
-	return database.DB.Create(entity).Error
+func (s *entityService) Create(entity *models.Entity) error {
+	return s.db.Create(entity).Error
 }
 
 // Atualizar usuário
-func UpdateEntity(entity *models.Entity) error {
-	return database.DB.Save(entity).Error
+func (s *entityService) Update(entity *models.Entity) error {
+	return s.db.Save(entity).Error
 }
 
 // Deletar usuário
-func DeleteEntity(id uuid.UUID) error {
-	return database.DB.Delete(&models.Entity{}, id).Error
+func (s *entityService) Delete(id uuid.UUID) error {
+	return s.db.Delete(&models.Entity{}, id).Error
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/database"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/redis"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
@@ -84,8 +85,8 @@ func RegisterEncode(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid entity uuid"})
 			return
 		}
-
-		entityExists, err := services.GetEntityByID(entityID)
+		entityService := services.NewEntityService(database.DB)
+		entityExists, err := entityService.GetByID(entityID)
 		log.Println(entityExists)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Entity not found"})

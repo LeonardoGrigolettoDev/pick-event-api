@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/LeonardoGrigolettoDev/pick-event-api.git/database"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/redis"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
@@ -155,8 +156,8 @@ func handleFacialRecognition(ctx *gin.Context) (models.Event, string) {
 		utils.RespondWithError(ctx, http.StatusBadRequest, "Invalid entity ID")
 		return models.Event{}, ""
 	}
-
-	entity, err := services.GetEntityByID(entityID)
+	entityService := services.NewEntityService(database.DB)
+	entity, err := entityService.GetByID(entityID)
 	if err != nil {
 		utils.RespondWithError(ctx, http.StatusNotFound, "Entity not found")
 		return models.Event{}, ""
