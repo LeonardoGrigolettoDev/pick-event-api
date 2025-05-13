@@ -10,62 +10,70 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetUsers(c *gin.Context) {
-	users, err := services.GetUsers()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, users)
+type UserController struct {
+	Service services.UserService
 }
 
-func GetUserByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	user, err := services.GetUserByID(uint(id))
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found."})
-		return
-	}
-	c.JSON(http.StatusOK, user)
+func NewUserController(service services.UserService) *UserController {
+	return &UserController{Service: service}
 }
 
-func CreateUser(c *gin.Context) {
+func (c *UserController) GetUsers(ctx *gin.Context) {
+	users, err := c.Service.GetAll()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, users)
+}
+
+func (c *UserController) GetUserByID(ctx *gin.Context) {
+	id, _ := strconv.Atoi(ctx.Param("id"))
+	user, err := c.Service.GetByID(uint(id))
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found."})
+		return
+	}
+	ctx.JSON(http.StatusOK, user)
+}
+
+func (c *UserController) CreateUser(ctx *gin.Context) {
 	var user models.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&user); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := services.CreateUser(&user); err != nil {
+	if err := c.Service.Create(&user); err != nil {
 		if err.Error() == "ERROR: duplicate key value violates unique constraint \"uni_users_email\" (SQLSTATE 23505)" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists on database."})
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists on database."})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, user)
+	ctx.JSON(http.StatusCreated, user)
 }
 
-func UpdateUser(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+func (c *UserController) UpdateUser(ctx *gin.Context) {
+	id, _ := strconv.Atoi(ctx.Param("id"))
 	var user models.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&user); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	user.ID = uint(id)
-	if err := services.UpdateUser(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := c.Service.Update(&user); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	ctx.JSON(http.StatusOK, user)
 }
 
-func DeleteUser(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	if err := services.DeleteUser(uint(id)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+func (c *UserController) DeleteUser(ctx *gin.Context) {
+	id, _ := strconv.Atoi(ctx.Param("id"))
+	if err := c.Service.Delete(uint(id)); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": id})
+	ctx.JSON(http.StatusOK, gin.H{"message": id})
 }
