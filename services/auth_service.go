@@ -30,19 +30,24 @@ func RegisterUser(user *models.User) (string, error) {
 }
 
 // Login de usuário
-func LoginUser(email, password string) (string, error) {
+func LoginUser(email, password string) (string, models.User, error) {
 	var user models.User
 
 	// Buscar usuário pelo e-mail
 	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
-		return "", errors.New("usuário não encontrado")
+		return "", user, errors.New("usuário não encontrado")
 	}
 
 	// Verificar senha
 	if !user.CheckPassword(password) {
-		return "", errors.New("senha incorreta")
+		return "", user, errors.New("senha incorreta")
 	}
 
 	// Gerar token JWT
-	return utils.GenerateToken(user.ID)
+	token, err := utils.GenerateToken(user.ID)
+	if err != nil {
+		return "", user, err
+	}
+
+	return token, user, nil
 }
