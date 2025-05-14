@@ -1,33 +1,49 @@
 package services
 
 import (
-	"github.com/LeonardoGrigolettoDev/pick-event-api.git/database"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
+	"gorm.io/gorm"
 )
 
-func GetEncodes() ([]models.Encode, error) {
+type EncodeService interface {
+	GetAll() ([]models.Encode, error)
+	Create(user *models.Encode) error
+	GetByID(id string) (models.Encode, error)
+	Update(user *models.Encode) error
+	Delete(id string) error
+}
+
+type encodeService struct {
+	db *gorm.DB
+}
+
+func NewEncodeService(db *gorm.DB) EncodeService {
+	return &encodeService{db: db}
+}
+
+func (s *encodeService) GetAll() ([]models.Encode, error) {
 	var encodes []models.Encode
-	err := database.DB.Find(&encodes).Error
+	err := s.db.Find(&encodes).Error
 	return encodes, err
 }
 
-func GetEncodeByID(id string) (models.Encode, error) {
+func (s *encodeService) GetByID(id string) (models.Encode, error) {
 	var encode models.Encode
-	err := database.DB.Where("id = ?", id).First(&encode)
+	err := s.db.Where("id = ?", id).First(&encode)
 	return encode, err.Error
 }
 
 // Criar usuário
-func CreateEncode(encode *models.Encode) error {
-	return database.DB.Create(encode).Error
+func (s *encodeService) Create(encode *models.Encode) error {
+	return s.db.Create(encode).Error
 }
 
 // Atualizar usuário
-func UpdateEncode(encode *models.Encode) error {
-	return database.DB.Save(encode).Error
+func (s *encodeService) Update(encode *models.Encode) error {
+	return s.db.Save(encode).Error
 }
 
 // Deletar usuário
-func DeleteEncode(id string) error {
-	return database.DB.Delete(&models.Encode{}, id).Error
+func (s *encodeService) Delete(id string) error {
+	return s.db.Delete(&models.Encode{}, id).Error
 }
