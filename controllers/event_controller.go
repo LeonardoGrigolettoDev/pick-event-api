@@ -63,7 +63,7 @@ func (c *EventController) CreateEvent(ctx *gin.Context) {
 			return
 		}
 		event, imageBase64 := handleFacialRecognition(ctx)
-		log.Println("Event: ", event)
+		// log.Println("Event: ", event)
 		if event.EntityID == uuid.Nil {
 			return
 		}
@@ -145,14 +145,15 @@ func handleFacialRecognition(ctx *gin.Context) (models.Event, string) {
 		utils.RespondWithError(ctx, http.StatusInternalServerError, err.Error())
 		return models.Event{}, ""
 	}
-
 	if face.Status == "not_found" {
 		utils.RespondWithError(ctx, http.StatusNotFound, "Face not found")
 		return models.Event{}, ""
 	}
+	log.Println(face.Status)
 
 	entityID, err := uuid.Parse(face.MatchedID)
 	if err != nil {
+
 		utils.RespondWithError(ctx, http.StatusBadRequest, "Invalid entity ID")
 		return models.Event{}, ""
 	}

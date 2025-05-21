@@ -43,7 +43,6 @@ func WaitForFaceComparisonResponse(ctx context.Context, expectedID string) (*Fac
 				log.Println("Error decoding Redis message:", err)
 				continue
 			}
-
 			if face.ID != expectedID {
 				continue
 			}
