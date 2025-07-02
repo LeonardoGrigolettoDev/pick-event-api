@@ -3,6 +3,7 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
@@ -15,6 +16,15 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // 🔓 🔓 🔓 libera qualquer origem
 	},
+}
+
+type DeviceHub struct {
+	clients map[string]map[*websocket.Conn]bool
+	mu      sync.RWMutex
+}
+
+var hub = DeviceHub{
+	clients: make(map[string]map[*websocket.Conn]bool),
 }
 
 type DeviceController struct {
@@ -91,15 +101,33 @@ func (c *DeviceController) DeleteDevice(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": id})
 }
 
-func (c *DeviceController) StreamDevice(ctx *gin.Context) {
-	log.Println("Connection header:", ctx.Request.Header.Get("Connection"))
-	log.Println("Upgrade header:", ctx.Request.Header.Get("Upgrade"))
+func (c *DeviceController) StreamDevice(ctx *gin.Context) { //NOTE o único que poderá publicar nesse tópico, será o próprio dispositivo
+	deviceID := ctx.Param("deviceID") // Exemplo: /device/:deviceID/stream
+
 	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
 		log.Println("Failed to upgrade:", err)
 		return
 	}
 	defer conn.Close()
+
+	// Registra conexão
+	hub.mu.Lock()
+	if hub.clients[deviceID] == nil {
+		hub.clients[deviceID] = make(map[*websocket.Conn]bool)
+	}
+	hub.clients[deviceID][conn] = true
+	hub.mu.Unlock()
+
+	defer func() {
+		hub.mu.Lock()
+		delete(hub.clients[deviceID], conn)
+		if len(hub.clients[deviceID]) == 0 {
+			delete(hub.clients, deviceID)
+		}
+		hub.mu.Unlock()
+		conn.Close()
+	}()
 
 	for {
 		_, msg, err := conn.ReadMessage()
@@ -108,8 +136,23 @@ func (c *DeviceController) StreamDevice(ctx *gin.Context) {
 			break
 		}
 
-		log.Printf("Received: %s", msg)
+		log.Printf("[%s] Received: %s", deviceID, msg)
 
+		// Broadcast para todos do mesmo deviceID
+		hub.mu.RLock()
+		for clientConn := range hub.clients[deviceID] {
+			if clientConn == conn {
+				// Se quiser pular o remetente, continue
+				continue
+			}
+			err := clientConn.WriteMessage(websocket.TextMessage, msg)
+			if err != nil {
+				log.Println("Write error:", err)
+			}
+		}
+		hub.mu.RUnlock()
+
+		// Responde ACK ao remetente (opcional)
 		err = conn.WriteMessage(websocket.TextMessage, []byte("ACK: "+string(msg)))
 		if err != nil {
 			log.Println("Write error:", err)
