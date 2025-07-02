@@ -10,10 +10,10 @@ import (
 func SetupRoutes(router *gin.Engine) {
 	// auth := router.Group("/")
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Connection", "Upgrade"},
+		ExposeHeaders:    []string{"Content-Length", "Upgrade", "Connection"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))

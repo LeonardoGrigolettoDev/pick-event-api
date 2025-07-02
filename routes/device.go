@@ -16,5 +16,6 @@ func SetupDeviceRoutes(r *gin.RouterGroup) {
 		r.POST("/devices", controller.CreateDevice)
 		r.PUT("/devices/:id", controller.UpdateDevice)
 		r.DELETE("/devices/:id", controller.DeleteDevice)
+		r.GET("/devices/stream/:id", controller.StreamDevice)
 	}
 }

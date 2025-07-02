@@ -1,13 +1,21 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/models"
 	"github.com/LeonardoGrigolettoDev/pick-event-api.git/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // 🔓 🔓 🔓 libera qualquer origem
+	},
+}
 
 type DeviceController struct {
 	Service services.DeviceService
@@ -81,4 +89,31 @@ func (c *DeviceController) DeleteDevice(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": id})
+}
+
+func (c *DeviceController) StreamDevice(ctx *gin.Context) {
+	log.Println("Connection header:", ctx.Request.Header.Get("Connection"))
+	log.Println("Upgrade header:", ctx.Request.Header.Get("Upgrade"))
+	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+	if err != nil {
+		log.Println("Failed to upgrade:", err)
+		return
+	}
+	defer conn.Close()
+
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("Read error:", err)
+			break
+		}
+
+		log.Printf("Received: %s", msg)
+
+		err = conn.WriteMessage(websocket.TextMessage, []byte("ACK: "+string(msg)))
+		if err != nil {
+			log.Println("Write error:", err)
+			break
+		}
+	}
 }
