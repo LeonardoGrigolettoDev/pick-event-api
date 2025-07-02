@@ -18,12 +18,13 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-type DeviceHub struct {
-	clients map[string]map[*websocket.Conn]bool
+type Hub struct {
 	mu      sync.RWMutex
+	clients map[string]map[*websocket.Conn]bool
 }
 
-var hub = DeviceHub{
+// Instância global do Hub
+var hub = Hub{
 	clients: make(map[string]map[*websocket.Conn]bool),
 }
 
@@ -101,17 +102,17 @@ func (c *DeviceController) DeleteDevice(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": id})
 }
 
-func (c *DeviceController) StreamDevice(ctx *gin.Context) { //NOTE o único que poderá publicar nesse tópico, será o próprio dispositivo
-	deviceID := ctx.Param("deviceID") // Exemplo: /device/:deviceID/stream
+func (c *DeviceController) StreamDevice(ctx *gin.Context) {
+	deviceID := ctx.Param("deviceID")
+	log.Println("Novo cliente para ID:", deviceID)
 
 	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
-		log.Println("Failed to upgrade:", err)
+		log.Println("Upgrade error:", err)
 		return
 	}
-	defer conn.Close()
 
-	// Registra conexão
+	// REGISTRA CONEXÃO NO GRUPO CERTO
 	hub.mu.Lock()
 	if hub.clients[deviceID] == nil {
 		hub.clients[deviceID] = make(map[*websocket.Conn]bool)
@@ -119,6 +120,9 @@ func (c *DeviceController) StreamDevice(ctx *gin.Context) { //NOTE o único que 
 	hub.clients[deviceID][conn] = true
 	hub.mu.Unlock()
 
+	log.Println("Clientes ativos para", deviceID, ":", len(hub.clients[deviceID]))
+
+	// REMOVE NO FECHAR
 	defer func() {
 		hub.mu.Lock()
 		delete(hub.clients[deviceID], conn)
@@ -127,8 +131,10 @@ func (c *DeviceController) StreamDevice(ctx *gin.Context) { //NOTE o único que 
 		}
 		hub.mu.Unlock()
 		conn.Close()
+		log.Println("Conexão encerrada:", deviceID)
 	}()
 
+	// LOOP PRINCIPAL
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
@@ -136,26 +142,23 @@ func (c *DeviceController) StreamDevice(ctx *gin.Context) { //NOTE o único que 
 			break
 		}
 
-		log.Printf("[%s] Received: %s", deviceID, msg)
+		log.Printf("Recebido de [%s]: %s", deviceID, string(msg))
 
-		// Broadcast para todos do mesmo deviceID
+		// BROADCAST SÓ PRO MESMO ID
 		hub.mu.RLock()
-		for clientConn := range hub.clients[deviceID] {
-			if clientConn == conn {
-				// Se quiser pular o remetente, continue
-				continue
+		for c := range hub.clients[deviceID] {
+			if c == conn {
+				continue // Pula o remetente se quiser
 			}
-			err := clientConn.WriteMessage(websocket.TextMessage, msg)
-			if err != nil {
-				log.Println("Write error:", err)
+			if err := c.WriteMessage(websocket.TextMessage, msg); err != nil {
+				log.Println("Erro no envio:", err)
 			}
 		}
 		hub.mu.RUnlock()
 
-		// Responde ACK ao remetente (opcional)
-		err = conn.WriteMessage(websocket.TextMessage, []byte("ACK: "+string(msg)))
-		if err != nil {
-			log.Println("Write error:", err)
+		// ACK pro remetente
+		if err := conn.WriteMessage(websocket.TextMessage, []byte("ACK")); err != nil {
+			log.Println("ACK error:", err)
 			break
 		}
 	}
